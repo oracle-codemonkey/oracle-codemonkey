@@ -1,5 +1,19 @@
 
-create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p_name in varchar2) as
+create or replace procedure mygenddl(p_type                       in varchar2
+                                    ,p_schema                     in varchar2
+                                    ,p_name                       in varchar2
+                                    ,p_primary_key_as_alter       in boolean := false
+                                    ,p_check_constraints_as_alter in boolean := true
+                                    ,p_unique_key_as_alter        in boolean := true
+                                    ,p_foreign_key_as_alter       in boolean := true
+                                    ,p_not_null_as_alter          in boolean := false
+                                    ,p_print_private_synonyms     in boolean := true
+                                    ,p_print_public_synonyms      in boolean := true
+                                    ,p_strip_object_schema        in boolean := false
+                                    ,p_strip_tablespace_clause    in boolean := false
+                                    ,p_strip_segment_attrs        in boolean := false
+                                    ,p_strip_comments             in boolean := true
+                                    ) as
     gc_fetch_ddl_max  constant number := 100;
 
     gc_newln          constant varchar2(1) := chr(10);
@@ -15,17 +29,6 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
     gc_object_type constant user_objects.object_type %type := p_type;
     gc_object_name constant user_objects.object_name %type := p_name;
 
-    gc_primary_key_as_alter         constant boolean := true;
-    gc_unique_key_as_alter          constant boolean := true;
-    gc_check_constraints_as_alter   constant boolean := true;
-    gc_foreign_key_as_alter         constant boolean := true;
-    gc_not_null_as_alter            constant boolean := false;
-    gc_print_private_synonyms       constant boolean := false;
-    gc_print_public_synonyms        constant boolean := false;
-    gc_strip_object_schema          constant boolean := false;
-    gc_strip_tablespace_clause      constant boolean := false;
-    gc_strip_segment_attrs          constant boolean := false;
-    gc_strip_comments               constant boolean := true;
 
     procedure create_table_sxml_xslt (p_clob in out nocopy clob);
     procedure create_index_sxml_xslt (p_clob in out nocopy clob, p_object_owner in varchar2);
@@ -81,12 +84,12 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
         l_xslt := xmltype(l_xslt_text);
         l_sxml := l_sxml.transform(
             xsl       => l_xslt,
-            parammap  => xlst_transform_param('remove-object-schema' , gc_strip_object_schema)
-                    || xlst_transform_param('primary-key-as-alter'   , gc_primary_key_as_alter)
-                    || xlst_transform_param('unique-key-as-alter'    , gc_unique_key_as_alter)
-                    || xlst_transform_param('check-constraints-as-alter', gc_check_constraints_as_alter)
-                    || xlst_transform_param('foreign-key-as-alter'   , gc_foreign_key_as_alter)
-                    || xlst_transform_param('not-null-as-alter'      , gc_not_null_as_alter)
+            parammap  => xlst_transform_param('remove-object-schema' , p_strip_object_schema)
+                    || xlst_transform_param('primary-key-as-alter'   , p_primary_key_as_alter)
+                    || xlst_transform_param('unique-key-as-alter'    , p_unique_key_as_alter)
+                    || xlst_transform_param('check-constraints-as-alter', p_check_constraints_as_alter)
+                    || xlst_transform_param('foreign-key-as-alter'   , p_foreign_key_as_alter)
+                    || xlst_transform_param('not-null-as-alter'      , p_not_null_as_alter)
         );
         dbms_lob.freetemporary(l_xslt_text);
 
@@ -98,9 +101,9 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
         l_mh := dbms_metadata.openw('TABLE');
 
         l_th := dbms_metadata.add_transform(l_mh, 'SXMLDDL');
-        dbms_metadata.set_transform_param(l_th, 'SEGMENT_ATTRIBUTES' , not(gc_strip_segment_attrs));  
+        dbms_metadata.set_transform_param(l_th, 'SEGMENT_ATTRIBUTES' , not(p_strip_segment_attrs));  
         dbms_metadata.set_transform_param(l_th, 'STORAGE'            , false);
-        dbms_metadata.set_transform_param(l_th, 'TABLESPACE', not(gc_strip_tablespace_clause));  
+        dbms_metadata.set_transform_param(l_th, 'TABLESPACE', not(p_strip_tablespace_clause));  
         /* 
            Remark: the SIZE_BYTE_KEYWORD transform param is not supported in
            the SXMLDDL transform, which is a pity: the results will only be
@@ -151,7 +154,7 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
             l_xslt := xmltype(l_xslt_text);
             l_sxml := l_sxml.transform(
                 xsl       => l_xslt,
-                parammap  => xlst_transform_param('remove-object-schema' , gc_strip_object_schema)
+                parammap  => xlst_transform_param('remove-object-schema' , p_strip_object_schema)
             );
             dbms_lob.freetemporary(l_xslt_text);
 
@@ -162,8 +165,8 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
             
             l_mh := dbms_metadata.openw('INDEX');
             l_th := dbms_metadata.add_transform(l_mh, 'SXMLDDL');
-            dbms_metadata.set_transform_param(l_th, 'TABLESPACE', not(gc_strip_tablespace_clause));  
-            dbms_metadata.set_transform_param(l_th, 'SEGMENT_ATTRIBUTES', not(gc_strip_segment_attrs));
+            dbms_metadata.set_transform_param(l_th, 'TABLESPACE', not(p_strip_tablespace_clause));  
+            dbms_metadata.set_transform_param(l_th, 'SEGMENT_ATTRIBUTES', not(p_strip_segment_attrs));
             dbms_metadata.convert(l_mh, l_sxml, l_ddl);
             dbms_metadata.close(l_mh);
            
@@ -209,7 +212,7 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
         l_xslt := xmltype(l_xslt_text);
         l_sxml := l_sxml.transform(
             xsl       => l_xslt,
-            parammap  => xlst_transform_param('remove-object-schema' , gc_strip_object_schema)
+            parammap  => xlst_transform_param('remove-object-schema' , p_strip_object_schema)
         );
         dbms_lob.freetemporary(l_xslt_text);
 
@@ -265,7 +268,7 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
             l_xslt := xmltype(l_xslt_text);
             l_xml := l_xml.transform(
                 xsl       => l_xslt,
-                parammap  => xlst_transform_param('remove-object-schema' , gc_strip_object_schema)
+                parammap  => xlst_transform_param('remove-object-schema' , p_strip_object_schema)
             );
             dbms_lob.freetemporary(l_xslt_text);
                 
@@ -318,7 +321,7 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
             dbms_metadata.set_filter(l_mh, 'CUSTOM_FILTER', p_custom_filter);
         end if;
 
-        if gc_strip_object_schema 
+        if p_strip_object_schema 
             and p_object_type not in ('COMMENT', 'SYNONYM') 
         then
             l_rh := dbms_metadata.add_transform(l_mh, 'MODIFY');
@@ -337,9 +340,9 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
         end if;
         
         if p_object_type in ('TABLE', 'INDEX') then
-            dbms_metadata.set_transform_param(l_th, 'SEGMENT_ATTRIBUTES', not(gc_strip_segment_attrs));
+            dbms_metadata.set_transform_param(l_th, 'SEGMENT_ATTRIBUTES', not(p_strip_segment_attrs));
             dbms_metadata.set_transform_param(l_th, 'STORAGE', false);
-            dbms_metadata.set_transform_param(l_th, 'TABLESPACE', not(gc_strip_tablespace_clause));
+            dbms_metadata.set_transform_param(l_th, 'TABLESPACE', not(p_strip_tablespace_clause));
 
         elsif p_object_type in ('CONSTRAINT') then
             dbms_metadata.set_transform_param(l_th, 'SEGMENT_ATTRIBUTES', false);
@@ -639,7 +642,7 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
         print_table_main_ddl(p_schema_name, p_table_name);
         print_nl;
 
-        if not gc_strip_comments then
+        if not p_strip_comments then
           print_ddl_pieces('COMMENT', p_schema_name, p_table_name, 
                   p_is_dependent => true, p_base_object_type => 'TABLE');
           print_nl;
@@ -654,7 +657,7 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
         */
 
         /* NOT NULL constraints */
-        if gc_not_null_as_alter then
+        if p_not_null_as_alter then
             print_ddl_pieces('CONSTRAINT', p_schema_name, p_table_name, 
                     p_is_dependent => true, p_base_object_type => 'TABLE',
                     p_custom_filter => 'TYPE_NUM = 7');
@@ -662,21 +665,21 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
         end if;
         
         /* PRIMARY KEY constraints */
-        if gc_primary_key_as_alter then
+        if p_primary_key_as_alter then
             print_dependent_constraints(p_schema_name, p_table_name, p_constraint_type => 'P');
         end if;
 
         /* UNIQUE KEY constraints */
-        if gc_unique_key_as_alter then
+        if p_unique_key_as_alter then
             print_dependent_constraints(p_schema_name, p_table_name, p_constraint_type => 'U');
         end if;
 
         /* CHECK constraints */
-        if gc_check_constraints_as_alter then
+        if p_check_constraints_as_alter then
             print_dependent_constraints(p_schema_name, p_table_name, p_constraint_type => 'C');
         end if;
 
-        if gc_foreign_key_as_alter then
+        if p_foreign_key_as_alter then
             print_dependent_constraints(p_schema_name, p_table_name, p_constraint_type => 'R');
         end if;
 
@@ -736,12 +739,14 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
                 a.owner, a.index_name
         )
         loop
-            print_index_ddl(
-                p_index_owner  => c.owner, 
-                p_index_name   => c.index_name,
-                p_object_owner => p_table_owner
-            );
-            print_nl;
+           if p_primary_key_as_alter and c.cnt_p  = 0 then
+             print_index_ddl(
+                  p_index_owner  => c.owner, 
+                  p_index_name   => c.index_name,
+                  p_object_owner => p_table_owner
+                  );
+             print_nl;
+          end if;
         end loop;
     end print_dependent_indexes;
 
@@ -768,8 +773,8 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
                 a.owner, synonym_name
         )
         loop
-            if (c.owner = 'PUBLIC' and gc_print_public_synonyms)
-                or (c.owner <> 'PUBLIC' and gc_print_private_synonyms)
+            if (c.owner = 'PUBLIC' and p_print_public_synonyms)
+                or (c.owner <> 'PUBLIC' and p_print_private_synonyms)
             then
                 print_synonym_ddl(
                     p_synonym_owner => c.owner, 
@@ -902,7 +907,7 @@ create or replace procedure mygenddl(p_type in varchar2, p_schema in varchar2, p
                 p_clob,
                 '\s*(comment\s+on\s+(table|column)\s+)"([^"]+)"\.(.*)$',
                 case
-                    when gc_strip_object_schema then '\1\4'
+                    when p_strip_object_schema then '\1\4'
                     else '\1"\3".\4'
                 end,
                 1, 1, 'in'
